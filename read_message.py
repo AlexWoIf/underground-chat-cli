@@ -1,9 +1,8 @@
 import asyncio
-import datetime
-import configargparse
+import logging
 import socket
 
-import aiofiles
+import configargparse
 
 
 def import_config():
@@ -18,10 +17,6 @@ def import_config():
     return vars(args)
 
 
-async def write_to_file(file_path, content):
-    async with aiofiles.open(file_path, mode='a') as f:
-        await f.write(content)
-
 async def read_msg(config):
     host, port, log_filepath = config.values()
     retry = 0
@@ -29,10 +24,9 @@ async def read_msg(config):
         try:
             reader, _ = await asyncio.open_connection(host, port)
             received_msg = await reader.readline()
-            timestamp = datetime.datetime.now().strftime("[%Y-%m-%d %H:%M]")
-            await write_to_file(log_filepath,
-                                f'{timestamp}\t{received_msg.decode()}')
-            print(received_msg.decode().strip())
+            decoded_msg = received_msg.decode().strip()
+            logging.debug(decoded_msg)
+            print(decoded_msg)
             retry = 0
         except socket.gaierror as exc:
             print(f'Sleeping {retry}sec(s)')
@@ -42,4 +36,9 @@ async def read_msg(config):
 
 if __name__ == '__main__':
     config = import_config()
+    logging.basicConfig(
+        format='%(levelname)s:%(filename)s:[%(asctime)s] %(message)s',
+                level=logging.DEBUG,
+                filename=config.get('logfile', f'{__name__}.log'),
+    )
     asyncio.run(read_msg(config))
