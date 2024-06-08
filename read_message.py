@@ -7,12 +7,13 @@ import aiofiles
 
 
 def import_config():
-    parser = configargparse.ArgParser(default_config_files=['./.env', ])
+    parser = configargparse.ArgParser(default_config_files=['.env', ])
     parser.add('--host', '--HOST', help='server address')
-    parser.add('-p', '--port', '--PORT', help='server port')
-    parser.add('-l', '--logfile', '--LOGFILE', help='log filepath')
+    parser.add('--reading_port', '--READING_PORT', help='server port')
+    parser.add('--logfile', '--LOGFILE', help='log filepath')
 
-    args = parser.parse_args()
+    args, _ = parser.parse_known_args()
+    print(args)
 
     return vars(args)
 
