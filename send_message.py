@@ -64,7 +64,7 @@ async def authorise(reader, writer, token):
     return nickname
 
 
-async def send_msg(config):
+async def submit_message(config):
     host, port, _, token, _, message = config.values()
     reader, writer = await asyncio.open_connection(host, port)
     received_msg = await reader.readline()
@@ -101,7 +101,7 @@ async def main():
     retry = 0
     try:
         if config.get('m') is not None:
-            await send_msg(config)
+            await submit_message(config)
     except socket.gaierror as exc:
         print(f'Sleeping {retry}sec(s)')
         asyncio.sleep(retry)
