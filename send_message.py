@@ -17,7 +17,7 @@ def import_config():
     parser.add('--logfile', '--LOGFILE', help='log filepath')
     parser.add('--token', '--TOKEN', help='user token')
     parser.add('--nickname')
-    parser.add('-m', help='message text')
+    parser.add('-m', required=True, help='message text')
 
     args, _ = parser.parse_known_args()
 
