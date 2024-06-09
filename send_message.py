@@ -3,6 +3,7 @@ import logging
 import socket
 
 import configargparse
+import json
 
 HELLO_STRING = 'Hello %username%! Enter your personal hash or leave it empty to create new account.'
 WELCOME_STRING = 'Welcome to chat! Post your message below. End it with an empty line.'
@@ -26,8 +27,13 @@ async def authorise(reader, writer, token):
     writer.write(f'{token}\n'.encode())
     await writer.drain()
     answer = await reader.readline()
-    answer = await reader.readline()
-    return answer
+    decoded_answer = answer.decode().strip()
+    print(f'!{answer}')
+    logging.debug(decoded_answer)
+    if decoded_answer == 'null':
+        raise ValueError
+    nickname = json.loads(decoded_answer).get('nickname')
+    return nickname
 
 
 async def send_msg(config):
@@ -35,19 +41,22 @@ async def send_msg(config):
     reader, writer = await asyncio.open_connection(host, port)
     received_msg = await reader.readline()
     decoded_msg = received_msg.decode().strip()
-    print(decoded_msg)
     logging.debug(decoded_msg)
 
-    if decoded_msg == HELLO_STRING:
-        received_msg = await authorise(reader, writer, token)
-        decoded_msg = received_msg.decode().strip()
-        print(decoded_msg)
-        logging.debug(decoded_msg)
+    if decoded_msg != HELLO_STRING:
+        raise RuntimeError
 
-    if decoded_msg == WELCOME_STRING:
-        print(f'Send "{message}"')
-        writer.write(f'{message}\n\n'.encode())
-        await writer.drain()
+    nickname = await authorise(reader, writer, token)
+    received_msg = await reader.readline()
+    decoded_msg = received_msg.decode().strip()
+    logging.debug(decoded_msg)
+
+    if decoded_msg != WELCOME_STRING:
+        raise RuntimeError
+
+    logging.debug(f'Send message from {nickname}:"{message}"')
+    writer.write(f'{message}\n\n'.encode())
+    await writer.drain()
 
 
 async def main():
@@ -66,6 +75,9 @@ async def main():
         print(f'Sleeping {retry}sec(s)')
         asyncio.sleep(retry)
         retry = (retry + 1) * 2
+    except ValueError:
+        logging.error('Неизвестный токен')
+        print('Неизвестный токен. Проверьте его или зарегистрируйте заново.')
 
 
 if __name__ == '__main__':
