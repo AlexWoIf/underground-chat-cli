@@ -26,13 +26,7 @@ async def read_message(config):
     print(decoded_msg)
 
 
-async def main():
-    config = import_config()
-    logging.basicConfig(
-        format='%(levelname)s:%(filename)s:[%(asctime)s] %(message)s',
-                level=logging.DEBUG,
-                filename=config.get('logfile', f'{__name__}.log'),
-    )
+async def read_persistent_message(config):
     retry = 0
     while True:
         try:
@@ -44,5 +38,16 @@ async def main():
             retry = (retry + 1) * 2
 
 
+def main():
+    config = import_config()
+    logging.basicConfig(
+        format='%(levelname)s:%(filename)s:[%(asctime)s] %(message)s',
+                level=logging.DEBUG,
+                filename=config.get('logfile', f'{__name__}.log'),
+    )
+
+    asyncio.run(read_persistent_message(config))
+
+
 if __name__ == '__main__':
-    asyncio.run(main())
+    main()

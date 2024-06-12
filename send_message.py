@@ -1,9 +1,10 @@
 import asyncio
+import json
 import logging
 import socket
+from contextlib import asynccontextmanager
 
 import configargparse
-import json
 
 HELLO_PROMPT = 'Hello %username%! Enter your personal hash or leave it empty to create new account.'
 WELCOME_PROMPT = 'Welcome to chat! Post your message below. End it with an empty line.'
@@ -24,32 +25,43 @@ def import_config():
     return vars(args)
 
 
+@asynccontextmanager
+async def connection_manager(host, port):
+    reader, writer = await asyncio.open_connection(host, port)
+    try:
+        yield reader, writer
+    finally:
+        writer.close()
+        await writer.wait_closed()
+
+
 async def register_user(config):
     host, port, _, _, nickname, _ = config.values()
-    reader, writer = await asyncio.open_connection(host, port)
-    received_msg = await reader.readline()
-    decoded_msg = received_msg.decode().strip()
-    logging.debug(decoded_msg)
+    async with connection_manager(host, port) as (reader, writer):
+    #reader, writer = await asyncio.open_connection(host, port)
+        received_msg = await reader.readline()
+        decoded_msg = received_msg.decode().strip()
+        logging.debug(decoded_msg)
 
-    if decoded_msg != HELLO_PROMPT:
-        raise RuntimeError
+        if decoded_msg != HELLO_PROMPT:
+            raise RuntimeError
 
-    writer.write(f'\n'.encode())
-    await writer.drain()
+        writer.write(f'\n'.encode())
+        await writer.drain()
 
-    received_msg = await reader.readline()
-    decoded_msg = received_msg.decode().strip()
-    logging.debug(decoded_msg)
+        received_msg = await reader.readline()
+        decoded_msg = received_msg.decode().strip()
+        logging.debug(decoded_msg)
 
-    if decoded_msg != REGISTER_PROMPT:
-        raise RuntimeError
-    
-    writer.write(f'{nickname}\n'.encode())
-    await writer.drain()
+        if decoded_msg != REGISTER_PROMPT:
+            raise RuntimeError
+        
+        writer.write(f'{nickname}\n'.encode())
+        await writer.drain()
 
-    received_msg = await reader.readline()
-    decoded_msg = received_msg.decode().strip()
-    logging.info(decoded_msg)
+        received_msg = await reader.readline()
+        decoded_msg = received_msg.decode().strip()
+        logging.info(decoded_msg)
 
 
 async def authorise(reader, writer, token):
@@ -87,21 +99,10 @@ async def submit_message(config):
     await writer.drain()
 
 
-async def main():
-    config = import_config()
-    print(config)
-    logging.basicConfig(
-        format='%(levelname)s:%(filename)s:[%(asctime)s] %(message)s',
-                level=logging.DEBUG,
-                filename=config.get('logfile', f'{__name__}.log'),
-    )
-
-    if config.get('nickname') is not None:
-        await register_user(config)
+async def submit_persistent_message(config):
     retry = 0
     try:
-        if config.get('m') is not None:
-            await submit_message(config)
+        await submit_message(config)
     except socket.gaierror as exc:
         print(f'Sleeping {retry}sec(s)')
         asyncio.sleep(retry)
@@ -111,5 +112,21 @@ async def main():
         print('Неизвестный токен. Проверьте его или зарегистрируйте заново.')
 
 
+def main():
+    config = import_config()
+    print(config)
+    logging.basicConfig(
+        format='%(levelname)s:%(filename)s:[%(asctime)s] %(message)s',
+                level=logging.DEBUG,
+                filename=config.get('logfile', f'{__name__}.log'),
+    )
+
+    if config.get('nickname') is not None:
+        asyncio.run(register_user(config))
+
+    if config.get('m') is not None:
+        asyncio.run(submit_persistent_message(config))
+
+
 if __name__ == '__main__':
-    asyncio.run(main())
+    main()
